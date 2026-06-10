@@ -6,7 +6,7 @@ import ClassDataPanel from './components/ClassDataPanel';
 import ScheduleGrid from './components/ScheduleGrid';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
-  Calendar, Layers, ShieldAlert, BadgeInfo, CheckCircle2, AlertCircle, Sparkles, BookOpen, MapPin,
+  Calendar, ShieldAlert, BadgeInfo, CheckCircle2, AlertCircle, Sparkles,
   Download, Copy, X, Check, RefreshCw
 } from 'lucide-react';
 
@@ -157,20 +157,17 @@ export default function App() {
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 font-sans flex flex-col selection:bg-indigo-100 selection:text-indigo-950">
       {/* Visual Header */}
-      <header className="bg-white border-b border-slate-100 py-5 px-6 shrink-0 shadow-xs">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+      <header className="bg-white border-b border-slate-100 py-5 px-4 lg:px-8 xl:px-10 shrink-0 shadow-xs">
+        <div className="max-w-none mx-auto flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
             <div className="flex items-center gap-2">
               <span className="p-2 bg-indigo-50 text-indigo-600 rounded-lg">
                 <Calendar className="w-5 h-5 animate-pulse" />
               </span>
               <h1 className="text-xl font-bold tracking-tight text-slate-900 animate-slide-in" id="app-title">
-                GILC Facility Class Planner
+                Masterclass Planner
               </h1>
             </div>
-            <p className="text-xs text-slate-500 mt-1 uppercase tracking-wide font-medium">
-              Multi-Room Capacity Scheduling with Program Cycles & Holiday Exclusions
-            </p>
           </div>
 
           {/* Quick Metrics Bar */}
@@ -179,12 +176,6 @@ export default function App() {
               <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Classes</span>
               <span className="text-sm font-extrabold text-slate-900 font-mono inline-flex items-center gap-1.5 mt-0.5">
                 {totalClasses} Configured
-              </span>
-            </div>
-            <div className="px-3.5 py-1.5 rounded-lg bg-white shadow-2xs border border-slate-100">
-              <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Weekly Bookings</span>
-              <span className="text-sm font-extrabold text-slate-900 font-mono inline-flex items-center gap-1.5 mt-0.5 text-indigo-600">
-                {totalSlotsCount} Scheduled
               </span>
             </div>
             <div className="px-3.5 py-1.5 rounded-lg bg-white shadow-2xs border border-slate-100">
@@ -206,9 +197,9 @@ export default function App() {
       </header>
 
       {/* Main Container Grid */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 min-h-0" id="main-content">
+      <main className="flex-1 max-w-none w-full mx-auto p-4 lg:p-6 xl:px-10 grid grid-cols-1 lg:grid-cols-12 gap-6 min-h-0" id="main-content">
         {/* Left Column - Input Data & Settings */}
-        <section className="lg:col-span-3 flex flex-col gap-6 h-full min-h-0">
+        <section className="lg:col-span-3 xl:col-span-2 flex flex-col gap-6 h-full min-h-0">
           <ClassDataPanel
             classes={classes}
             setClasses={setClasses}
@@ -251,7 +242,7 @@ export default function App() {
         </section>
 
         {/* Right Column - Visual Schedule Table & Override Interface */}
-        <section className="lg:col-span-9 flex flex-col h-full min-h-0">
+        <section className="lg:col-span-9 xl:col-span-10 flex flex-col h-full min-h-0">
           <div className="flex-1 min-h-0">
             <ScheduleGrid
               schedule={schedule}
@@ -265,35 +256,7 @@ export default function App() {
         </section>
       </main>
 
-      {/* Algorithmic Guidelines Footer section */}
-      <footer className="bg-white border-t border-slate-100 py-6 px-6 shrink-0 mt-auto">
-        <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6 text-xs text-slate-500">
-          <div className="space-y-1.5">
-            <h5 className="font-bold text-slate-800 flex items-center gap-1.5 uppercase tracking-wider text-[10px]">
-              <BookOpen className="w-4 h-4 text-slate-400" /> Merging Guidelines
-            </h5>
-            <p className="leading-relaxed">
-              Classes are automatically merged to optimize physical area footprint. Valid merges group classes in the <strong>same program</strong> within <strong>one level sequence</strong> of each other inside their rooms.
-            </p>
-          </div>
-          <div className="space-y-1.5">
-            <h5 className="font-bold text-slate-800 flex items-center gap-1.5 uppercase tracking-wider text-[10px]">
-              <Layers className="w-4 h-4 text-slate-400" /> Program Rotation Cycles
-            </h5>
-            <p className="leading-relaxed">
-              Each program has its own frequency (Bi-weekly, Tri-weekly, or Quad-weekly) and starting phase. Change cycle configurations on is a program-by-program basis in Settings.
-            </p>
-          </div>
-          <div className="space-y-1.5">
-            <h5 className="font-bold text-slate-800 flex items-center gap-1.5 uppercase tracking-wider text-[10px]">
-              <MapPin className="w-4 h-4 text-indigo-500" /> Facility Infrastructure
-            </h5>
-            <p className="leading-relaxed">
-              Assign programs to different rooms (e.g. <strong>GILC</strong> or <strong>G1</strong>). The solver checks and enforces each room's capacities and max merged group constraints independently.
-            </p>
-          </div>
-        </div>
-      </footer>
+
 
       {/* Custom Confirmation Dialog */}
       <AnimatePresence>

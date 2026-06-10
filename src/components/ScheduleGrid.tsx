@@ -296,12 +296,12 @@ export default function ScheduleGrid({
           </div>
         ) : (
           <div className="border border-slate-150 rounded-xl overflow-x-auto shadow-xs">
-            <table className="w-full text-xs border-collapse min-w-[850px]">
+            <table className="w-full text-xs border-collapse min-w-[1000px] table-fixed">
               <thead>
                 <tr className="bg-slate-50 text-slate-500 border-b border-slate-150 font-extrabold uppercase tracking-wider text-[10px]">
-                  <th className="py-2.5 px-3 border-r border-slate-150 text-center w-28">Timeslot</th>
+                  <th className="py-2.5 px-3 border-r border-slate-150 text-center w-[10%]">Timeslot</th>
                   {VALID_DAYS.map(day => (
-                    <th key={day} className="py-2.5 px-3 border-r border-slate-150 text-center w-36">
+                    <th key={day} className="py-2.5 px-3 border-r border-slate-150 text-center w-[15%]">
                       {day}
                       {isHoliday(selectedWeek, day, settings) && (
                         <span className="block text-[8px] text-rose-500 font-bold uppercase mt-0.5">(Holiday)</span>

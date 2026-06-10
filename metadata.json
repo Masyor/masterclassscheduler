@@ -1,5 +1,5 @@
 {
-  "name": "GILC Bi-Weekly Class Planner",
+  "name": "Masterclass Planner",
   "description": "An algorithmic and interactive scheduler for assigning language program classes to the GILC self-study area on a bi-weekly rotating basis with program-specific merging rules.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
