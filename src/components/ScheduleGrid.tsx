@@ -278,41 +278,59 @@ export default function ScheduleGrid({
           </span>
         </div>
 
-        <div className="border border-slate-150 rounded-xl overflow-x-auto shadow-xs">
-          <table className="w-full text-xs border-collapse min-w-[850px]">
-            <thead>
-              <tr className="bg-slate-50 text-slate-500 border-b border-slate-150 font-extrabold uppercase tracking-wider text-[10px]">
-                <th className="py-2.5 px-3 border-r border-slate-150 text-center w-28">Timeslot</th>
-                {VALID_DAYS.map(day => (
-                  <th key={day} className="py-2.5 px-3 border-r border-slate-150 text-center w-36">
-                    {day}
-                    {isHoliday(selectedWeek, day, settings) && (
-                      <span className="block text-[8px] text-rose-500 font-bold uppercase mt-0.5">(Holiday)</span>
-                    )}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-150">
-              {VALID_TIMESLOTS.map(time => (
-                <tr key={time} className="hover:bg-slate-50/30">
-                  <td className="py-3 px-3 bg-slate-50/60 text-slate-700 font-mono font-bold border-r border-slate-150 text-center text-[10.5px] select-none">
-                    {time}
-                  </td>
+        {classes.length === 0 ? (
+          <div className="border-2 border-dashed border-indigo-200 bg-indigo-50/10 rounded-2xl p-10 text-center my-10 max-w-xl mx-auto space-y-4 shadow-2xs">
+            <div className="w-14 h-14 bg-indigo-100 text-indigo-600 rounded-2xl flex items-center justify-center mx-auto animate-pulse">
+              <CalendarDays className="w-8 h-8" />
+            </div>
+            <div className="space-y-2">
+              <h3 className="text-sm font-bold text-slate-850">Ready to Schedule!</h3>
+              <p className="text-xs text-slate-500 max-w-sm mx-auto leading-relaxed">
+                Your master scheduler is currently empty. Click the <strong className="text-indigo-605">"Load / Import Save"</strong> tab on the left to paste worksheet data or upload a saved <code>.csv</code> file.
+              </p>
+            </div>
+            <div className="border-t border-indigo-100/60 pt-4 flex justify-center gap-6 text-[10.5px] text-indigo-600/70 font-semibold">
+              <span>&bull; Preserves solved cycle positions</span>
+              <span>&bull; Restores all scheduling configurations</span>
+            </div>
+          </div>
+        ) : (
+          <div className="border border-slate-150 rounded-xl overflow-x-auto shadow-xs">
+            <table className="w-full text-xs border-collapse min-w-[850px]">
+              <thead>
+                <tr className="bg-slate-50 text-slate-500 border-b border-slate-150 font-extrabold uppercase tracking-wider text-[10px]">
+                  <th className="py-2.5 px-3 border-r border-slate-150 text-center w-28">Timeslot</th>
                   {VALID_DAYS.map(day => (
-                    <td 
-                      key={day} 
-                      onClick={() => setSelectedCell({ week: selectedWeek, day, time, room: selectedRoom })}
-                      className="py-2 px-2 border-r border-slate-150 align-top hover:bg-slate-50/30 cursor-pointer min-h-[75px] relative transition-all"
-                    >
-                      {renderCellContent(selectedWeek, day, time, selectedRoom)}
-                    </td>
+                    <th key={day} className="py-2.5 px-3 border-r border-slate-150 text-center w-36">
+                      {day}
+                      {isHoliday(selectedWeek, day, settings) && (
+                        <span className="block text-[8px] text-rose-500 font-bold uppercase mt-0.5">(Holiday)</span>
+                      )}
+                    </th>
                   ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y divide-slate-150">
+                {VALID_TIMESLOTS.map(time => (
+                  <tr key={time} className="hover:bg-slate-50/30">
+                    <td className="py-3 px-3 bg-slate-50/60 text-slate-700 font-mono font-bold border-r border-slate-150 text-center text-[10.5px] select-none">
+                      {time}
+                    </td>
+                    {VALID_DAYS.map(day => (
+                      <td 
+                        key={day} 
+                        onClick={() => setSelectedCell({ week: selectedWeek, day, time, room: selectedRoom })}
+                        className="py-2 px-2 border-r border-slate-150 align-top hover:bg-slate-50/30 cursor-pointer min-h-[75px] relative transition-all"
+                      >
+                        {renderCellContent(selectedWeek, day, time, selectedRoom)}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* OVERRIDE MODAL DRAWER */}

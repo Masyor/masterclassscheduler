@@ -12,7 +12,7 @@ import {
 
 export default function App() {
   // Configured classes and active system settings
-  const [classes, setClasses] = useState<ClassDefinition[]>(DEFAULT_CLASSES);
+  const [classes, setClasses] = useState<ClassDefinition[]>([]);
   const [settings, setSettings] = useState<SolverSettings>(DEFAULT_SETTINGS);
   
   // Current scheduled results across the term ("week-day-time-room")
@@ -58,7 +58,7 @@ export default function App() {
   };
 
   const executeReset = () => {
-    setClasses(DEFAULT_CLASSES);
+    setClasses([]);
     setSettings(DEFAULT_SETTINGS);
     setConfirmReset(false);
   };
@@ -312,7 +312,7 @@ export default function App() {
                 <h3 className="text-lg font-bold text-slate-900">Reset Schedule Settings?</h3>
               </div>
               <p className="text-sm text-slate-500 leading-relaxed">
-                Are you sure you want to restore the default GILC classes, custom bi-weekly cycle ratios, room parameters, and calendar holidays? Any changes you made will be lost.
+                Are you sure you want to clear all active classes and restore custom bi-weekly cycle ratios, room configurations, and calendar holidays to original system defaults? Any current changes will be lost.
               </p>
               <div className="flex items-center justify-end gap-3 pt-2">
                 <button
