@@ -22,6 +22,112 @@ export function getLevelDistance(classA: ClassDefinition, classB: ClassDefinitio
   return Math.abs(seqA - seqB);
 }
 
+// Parses a timeslot string like '08:00-09:30' or ' 8:45 - 11:15' into start and end minutes from midnight
+export function parseTimeInterval(timeStr: string): { start: number; end: number } | null {
+  if (!timeStr) return null;
+  const parts = timeStr.split('-');
+  if (parts.length !== 2) return null;
+  
+  function toMinutes(t: string): number {
+    const trimmed = t.trim();
+    const partsHourMin = trimmed.split(':');
+    if (partsHourMin.length !== 2) return 0;
+    const h = parseInt(partsHourMin[0], 10);
+    const m = parseInt(partsHourMin[1], 10);
+    if (isNaN(h) || isNaN(m)) return 0;
+    return h * 60 + m;
+  }
+  
+  return {
+    start: toMinutes(parts[0]),
+    end: toMinutes(parts[1])
+  };
+}
+
+// Checks if two timeslot strings overlap in time on the same day
+export function timeslotsOverlap(timeA: string, timeB: string): boolean {
+  const tA = parseTimeInterval(timeA);
+  const tB = parseTimeInterval(timeB);
+  if (!tA || !tB) return false;
+  return tA.start < tB.end && tB.start < tA.end;
+}
+
+// Verifies that a list of scheduled classes on a single day in a single room does not violate capacity or merging rules at any instant
+export function verifyOverlappingRules(
+  classList: ClassDefinition[],
+  maxClasses: number,
+  levelMergeDistance: number,
+  allowGEPIgnoreSequential: boolean
+): boolean {
+  if (classList.length <= 1) return true;
+
+  const intervals = classList.map(c => {
+    const parsed = parseTimeInterval(c.time);
+    return parsed ? { ...parsed, cls: c } : null;
+  }).filter(Boolean) as Array<{ start: number; end: number; cls: ClassDefinition }>;
+
+  if (intervals.length === 0) return true;
+
+  const minutes = new Set<number>();
+  intervals.forEach(inv => {
+    minutes.add(inv.start);
+    minutes.add(inv.end);
+  });
+  const sortedMinutes = Array.from(minutes).sort((a, b) => a - b);
+
+  for (let i = 0; i < sortedMinutes.length - 1; i++) {
+    const tStart = sortedMinutes[i];
+    const tEnd = sortedMinutes[i + 1];
+    
+    // Find classes overlapping the open interval (tStart, tEnd)
+    const activeClasses = intervals
+      .filter(inv => inv.start < tEnd && inv.end > tStart)
+      .map(inv => inv.cls);
+
+    if (activeClasses.length === 0) continue;
+
+    // A. Capacity Check (Count)
+    if (activeClasses.length > maxClasses) {
+      return false;
+    }
+
+    // B. Cross-Program Exclusion Check
+    for (let j = 0; j < activeClasses.length; j++) {
+      for (let k = j + 1; k < activeClasses.length; k++) {
+        if (activeClasses[j].program !== activeClasses[k].program) {
+          return false;
+        }
+      }
+    }
+
+    // C. Level distance verification inside the active group
+    const isGEPOnly = activeClasses.every(c => c.program === 'GEP');
+    const ignoreSeq = isGEPOnly && allowGEPIgnoreSequential;
+
+    if (!ignoreSeq) {
+      for (let j = 0; j < activeClasses.length; j++) {
+        for (let k = j + 1; k < activeClasses.length; k++) {
+          if (getLevelDistance(activeClasses[j], activeClasses[k]) > levelMergeDistance) {
+            return false;
+          }
+        }
+      }
+    }
+
+    // D. Consolidated singular merged group requirement
+    const mergedGroups = partitionIntoMergedGroups(
+      activeClasses,
+      levelMergeDistance,
+      allowGEPIgnoreSequential
+    );
+    if (mergedGroups.length > 1) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 // Partitions a list of classes scheduled in the same slot into merged groups.
 export function partitionIntoMergedGroups(
   classesInSlot: ClassDefinition[],
@@ -201,52 +307,26 @@ export function solveWithFixedOffsets(
       function canPlaceInWeekRoom(cls: ClassDefinition, day: string, time: string): boolean {
         if (isHoliday(w, day, settings)) return false;
 
-        const slotKey = `${day}-${time}`;
-        const existingIds = localSchedule[slotKey] || [];
-
-        if (existingIds.length >= 2) {
-          return false;
-        }
-
-        const currentClasses = existingIds.map(id => classes.find(c => c.id === id)!);
-        const hypotheticalList = [...currentClasses, cls];
-
-        // 1. Cross-program rule: Programs must NEVER mix in the same slot and room
-        for (let i = 0; i < hypotheticalList.length; i++) {
-          for (let j = i + 1; j < hypotheticalList.length; j++) {
-            if (hypotheticalList[i].program !== hypotheticalList[j].program) {
-              return false;
+        // Find all classes already scheduled on this day in this room
+        const scheduledOnDay: ClassDefinition[] = [];
+        timeslots.forEach(t => {
+          const ids = localSchedule[`${day}-${t}`] || [];
+          ids.forEach(id => {
+            const found = classes.find(c => c.id === id);
+            if (found) {
+              scheduledOnDay.push(found);
             }
-          }
-        }
+          });
+        });
 
-        // 2. Enforce sequential level rule (+-1 level) for same program in same slot
-        // exception: GEP ignores sequential rule if settings.allowGEPIgnoreSequential is enabled
-        const isGEPOnly = hypotheticalList.every(c => c.program === 'GEP');
-        const ignoreSeq = isGEPOnly && !!settings.allowGEPIgnoreSequential;
+        const hypotheticalList = [...scheduledOnDay, cls];
 
-        if (!ignoreSeq) {
-          for (let i = 0; i < hypotheticalList.length; i++) {
-            for (let j = i + 1; j < hypotheticalList.length; j++) {
-              if (getLevelDistance(hypotheticalList[i], hypotheticalList[j]) > settings.levelMergeDistance) {
-                return false;
-              }
-            }
-          }
-        }
-
-        // 3. Merged groups rule: Must keep segments unified as exactly 1 group in the room/slot
-        const mergedGroups = partitionIntoMergedGroups(
-          hypotheticalList, 
-          settings.levelMergeDistance,
+        return verifyOverlappingRules(
+          hypotheticalList,
+          room.maxClassesPerSlot || 2,
+          settings.levelMergeDistance || 1,
           !!settings.allowGEPIgnoreSequential
         );
-
-        if (mergedGroups.length > 1) {
-          return false;
-        }
-
-        return true;
       }
 
       let backtrackCount = 0;

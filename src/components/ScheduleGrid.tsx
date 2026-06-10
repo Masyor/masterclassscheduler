@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { ClassDefinition, SolverSettings, Program } from '../types';
 import { VALID_DAYS, VALID_TIMESLOTS } from '../utils/defaultData';
-import { partitionIntoMergedGroups, isHoliday, isProgramActiveInWeek, isClassActiveInWeek } from '../utils/solver';
+import { partitionIntoMergedGroups, isHoliday, isProgramActiveInWeek, isClassActiveInWeek, timeslotsOverlap, getLevelDistance } from '../utils/solver';
 import { 
   AlertTriangle, Check, ChevronDown, Download, Grid, CalendarDays,
   Plus, ClipboardCheck, Edit, ShieldAlert, BadgeInfo, Users, BookOpen, AlertCircle
@@ -47,18 +47,53 @@ export default function ScheduleGrid({
     const classIds = schedule[key] || [];
     if (classIds.length === 0) return { error: null, warning: null, groups: [] };
 
+    // Find all classes on the same day in this room to check for general timing overlaps
+    const scheduledOnDay: ClassDefinition[] = [];
+    VALID_TIMESLOTS.forEach(t => {
+      const ids = schedule[`${week}-${day}-${t}-${roomName}`] || [];
+      ids.forEach(id => {
+        const found = getClass(id);
+        if (found) {
+          scheduledOnDay.push(found);
+        }
+      });
+    });
+
     const cellClasses = classIds.map(getClass).filter(Boolean) as ClassDefinition[];
+    const overlappingClasses = scheduledOnDay.filter(c => timeslotsOverlap(c.time, time));
+
     const groups = partitionIntoMergedGroups(cellClasses, settings.levelMergeDistance, !!settings.allowGEPIgnoreSequential);
 
     let error: string | null = null;
     let warning: string | null = null;
 
-    // Capacity metrics specific to this room
-    if (cellClasses.length > activeRoomConfig.maxClassesPerSlot) {
-      error = `Exceeds room capacity (${cellClasses.length}/${activeRoomConfig.maxClassesPerSlot})`;
+    // A. Check overall overlapping classes count (capacity checks)
+    if (overlappingClasses.length > activeRoomConfig.maxClassesPerSlot) {
+      error = `Exceeds room capacity (${overlappingClasses.length}/${activeRoomConfig.maxClassesPerSlot}) due to overlap`;
     }
 
-    if (groups.length > activeRoomConfig.maxMergedGroupsPerSlot) {
+    // B. Check cross-program mixers in overlapping timeslots
+    const programSet = new Set(overlappingClasses.map(c => c.program));
+    if (programSet.size > 1) {
+      error = `Cross-program mix error: ${Array.from(programSet).join(' & ')} overlapping at this time`;
+    }
+
+    // C. Check level merge rule distance
+    const isGEPOnly = overlappingClasses.every(c => c.program === 'GEP');
+    const ignoreSeq = isGEPOnly && !!settings.allowGEPIgnoreSequential;
+    if (!ignoreSeq) {
+      for (let i = 0; i < overlappingClasses.length; i++) {
+        for (let j = i + 1; j < overlappingClasses.length; j++) {
+          if (overlappingClasses[i].program === overlappingClasses[j].program) {
+            if (getLevelDistance(overlappingClasses[i], overlappingClasses[j]) > settings.levelMergeDistance) {
+              error = `Merge rule violation: Level distance too large (${overlappingClasses[i].name} vs ${overlappingClasses[j].name}) due to overlap`;
+            }
+          }
+        }
+      }
+    }
+
+    if (!error && groups.length > activeRoomConfig.maxMergedGroupsPerSlot) {
       error = `Exceeds max merged groups (${groups.length}/${activeRoomConfig.maxMergedGroupsPerSlot})`;
     }
 
