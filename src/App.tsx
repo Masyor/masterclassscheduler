@@ -4,11 +4,14 @@ import { solveGILCSchedule, getLevelSequence } from './utils/solver';
 import { DEFAULT_CLASSES, DEFAULT_SETTINGS, VALID_DAYS, VALID_TIMESLOTS } from './utils/defaultData';
 import ClassDataPanel from './components/ClassDataPanel';
 import ScheduleGrid from './components/ScheduleGrid';
+import SettingsModal from './components/SettingsModal';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Calendar, ShieldAlert, BadgeInfo, CheckCircle2, AlertCircle, Sparkles,
-  Download, Copy, X, Check, RefreshCw
+  Download, Copy, X, Check, RefreshCw, Settings
 } from 'lucide-react';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 export default function App() {
   // Configured classes and active system settings
@@ -33,6 +36,7 @@ export default function App() {
   } | null>(null);
   const [confirmReset, setConfirmReset] = useState(false);
   const [copiedCSV, setCopiedCSV] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
 
   // Run solver on settings or classes change
   const runSchedulerAlgorithm = () => {
@@ -62,7 +66,7 @@ export default function App() {
     setSettings(DEFAULT_SETTINGS);
     setConfirmReset(false);
   };
-
+    
   // High-fidelity CSV export supporting teachers, class codes, and rooms
   const handleExportToSpreadsheet = () => {
     const numWeeks = settings.termLengthWeeks || 10;
@@ -148,6 +152,79 @@ export default function App() {
     }
   };
 
+  const handleExportToPDF = () => {
+    const doc = new jsPDF('landscape', 'pt', 'a4');
+    const numWeeks = settings.termLengthWeeks || 10;
+    const rooms = settings.rooms || [{ name: 'GILC' }];
+    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const timeslots = (settings.timeslotConfiguration || VALID_TIMESLOTS).sort();
+
+    for (let w = 1; w <= numWeeks; w++) {
+      if (w > 1) doc.addPage();
+      
+      doc.setFontSize(18);
+      doc.text(`Week ${w} Schedule`, 40, 40);
+      
+      let startY = 60;
+      rooms.forEach((room) => {
+        doc.setFontSize(14);
+        doc.text(`Room: ${room.name}`, 40, startY);
+        startY += 10;
+        
+        const tableData = timeslots.map(time => {
+          const row = [time];
+          days.forEach(day => {
+            const key = `${w}-${day}-${time}-${room.name}`;
+            const classIds = schedule[key] || [];
+            const classNames = classIds.map(id => {
+              const c = classes.find(cl => cl.id === id);
+              return c ? `${c.name} (${c.teacher || 'N/A'}, ${c.classCode || 'N/A'})` : '';
+            }).join('\n');
+            row.push(classNames);
+          });
+          return row;
+        });
+
+        autoTable(doc, {
+          head: [['Time', ...days]],
+          body: tableData,
+          startY: startY + 10,
+          theme: 'striped',
+          headStyles: { fillColor: [63, 81, 181] }, // Indigo
+          styles: { fontSize: 8, cellPadding: 2 },
+          columnStyles: { 0: { cellWidth: 50 } },
+        });
+        
+        // @ts-ignore - jspdf-autotable adds lastAutoTable to the doc
+        startY = doc.lastAutoTable.finalY + 30;
+      });
+    }
+    if (unscheduledClasses.length > 0) {
+      doc.addPage();
+      doc.setFontSize(18);
+      doc.text("Unscheduled Classes", 40, 40);
+      
+      const unscheduledData = unscheduledClasses.map(item => [
+          `Week ${item.week}`,                
+          item.class.time,
+          item.class.name,                   
+          item.class.teacher || 'N/A',       
+          item.class.classCode || 'N/A'     
+      ]);                
+      
+      autoTable(doc, {
+        head: [['Week', 'Time Slot', 'Level', 'Teacher', 'Code']],
+        body: unscheduledData,
+        startY: 60,
+        theme: 'striped',
+        headStyles: { fillColor: [225, 29, 72] }, // Rose-600
+        styles: { fontSize: 10, cellPadding: 4 },
+      });
+    }
+    doc.save('schedule.pdf');
+  };
+
+
   // Calculate unique active classes scheduled in at least one week
   const totalClasses = classes.length;
   
@@ -159,7 +236,7 @@ export default function App() {
       {/* Visual Header */}
       <header className="bg-white border-b border-slate-100 py-5 px-4 lg:px-8 xl:px-10 shrink-0 shadow-xs">
         <div className="max-w-none mx-auto flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-          <div>
+          <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
               <span className="p-2 bg-indigo-50 text-indigo-600 rounded-lg">
                 <Calendar className="w-5 h-5 animate-pulse" />
@@ -168,81 +245,61 @@ export default function App() {
                 Masterclass Planner
               </h1>
             </div>
+            <button
+              onClick={() => setShowSettings(true)}
+              className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition-all cursor-pointer"
+            >
+              <Settings className="w-4 h-4" /> Settings
+            </button>
           </div>
 
-          {/* Quick Metrics Bar */}
-          <div className="flex flex-wrap items-center gap-3 bg-slate-50 p-2 rounded-xl border border-slate-100">
-            <div className="px-3.5 py-1.5 rounded-lg bg-white shadow-2xs border border-slate-100">
-              <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Classes</span>
-              <span className="text-sm font-extrabold text-slate-900 font-mono inline-flex items-center gap-1.5 mt-0.5">
-                {totalClasses} Configured
-              </span>
-            </div>
-            <div className="px-3.5 py-1.5 rounded-lg bg-white shadow-2xs border border-slate-100">
-              <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Safety Status</span>
-              <span className={`text-xs font-bold inline-flex items-center gap-1 mt-0.5 ${isPerfectScore ? 'text-emerald-700' : 'text-amber-500'}`}>
-                {isPerfectScore ? (
-                  <>
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Perfect Slotting
-                  </>
-                ) : (
-                  <>
-                    <AlertCircle className="w-3.5 h-3.5 text-amber-500" /> Resolution Warnings
-                  </>
-                )}
-              </span>
+          {/* Quick Metrics Bar & Optimizer */}
+          <div className="flex flex-wrap items-center gap-3">
+             <button
+              onClick={runSchedulerAlgorithm}
+              disabled={isSolving}
+              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold transition-all cursor-pointer shadow-xs disabled:opacity-50 flex items-center gap-2"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isSolving ? 'animate-spin' : ''}`} />
+              Optimize Facility Scheduling
+            </button>
+            <button
+              onClick={handleExportToPDF}
+              className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-lg text-xs font-bold transition-all cursor-pointer shadow-xs flex items-center gap-2"
+            >
+              <Download className="w-3.5 h-3.5" />
+              Download/Export PDF
+            </button>
+            {/* Metrics Bar */}
+            <div className="flex items-center gap-3">
+              <div className="px-3.5 py-1.5 rounded-lg bg-white shadow-2xs border border-slate-100">
+                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Classes</span>
+                <span className="text-sm font-extrabold text-slate-900 font-mono inline-flex items-center gap-1.5 mt-0.5">
+                  {totalClasses} Configured
+                </span>
+              </div>
+              <div className="px-3.5 py-1.5 rounded-lg bg-white shadow-2xs border border-slate-100">
+                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Safety Status</span>
+                <span className={`text-xs font-bold inline-flex items-center gap-1 mt-0.5 ${isPerfectScore ? 'text-emerald-700' : 'text-amber-500'}`}>
+                  {isPerfectScore ? (
+                    <>
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Perfect Slotting
+                    </>
+                  ) : (
+                    <>
+                      <AlertCircle className="w-3.5 h-3.5 text-amber-500" /> Resolution Warnings
+                    </>
+                  )}
+                </span>
+              </div>
             </div>
           </div>
         </div>
       </header>
 
-      {/* Main Container Grid */}
-      <main className="flex-1 max-w-none w-full mx-auto p-4 lg:p-6 xl:px-10 grid grid-cols-1 lg:grid-cols-12 gap-6 min-h-0" id="main-content">
-        {/* Left Column - Input Data & Settings */}
-        <section className="lg:col-span-3 xl:col-span-2 flex flex-col gap-6 h-full min-h-0">
-          <ClassDataPanel
-            classes={classes}
-            setClasses={setClasses}
-            settings={settings}
-            setSettings={setSettings}
-            onOptimize={runSchedulerAlgorithm}
-            onResetToDefault={handleResetToDefault}
-            isSolving={isSolving}
-          />
-
-          {/* Unscheduled Classes Diagnostics Drawer */}
-          {unscheduledClasses.length > 0 && (
-            <motion.div 
-              initial={{ opacity: 0, y: 15 }} 
-              animate={{ opacity: 1, y: 0 }} 
-              className="bg-rose-50 border border-rose-100 rounded-xl p-4 space-y-3 shrink-0 shadow-sm"
-              id="unscheduled-drawer"
-            >
-              <h4 className="text-xs font-bold text-rose-950 flex items-center gap-1.5 uppercase tracking-wider">
-                <ShieldAlert className="w-4.5 h-4.5 text-rose-600 shrink-0" />
-                Sizing & Capacity Bottlenecks ({unscheduledClasses.length})
-              </h4>
-              <p className="text-[11px] text-rose-800 leading-relaxed">
-                The selected rooms do not have enough slots to place the following classes on their teaching days. Adjust your <strong className="font-semibold text-rose-950">Room Capacities</strong>, change days, or reduce collision groupings to resolve:
-              </p>
-              <div className="border border-rose-150 rounded-lg max-h-40 overflow-y-auto divide-y divide-rose-150 bg-white">
-                {unscheduledClasses.map((item, idx) => (
-                  <div key={idx} className="p-2.5 flex justify-between items-center text-xs text-rose-900 font-medium hover:bg-rose-50/20">
-                    <div>
-                      <span className="font-bold block text-rose-950">{item.class.name}</span>
-                      <span className="text-[10px] text-rose-500 block">
-                        Week {item.week} &bull; Room {item.room} &bull; Runs {item.class.days.join('/')} at {item.class.time}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </motion.div>
-          )}
-        </section>
-
+      <main className="flex-1 max-w-none w-full mx-auto p-4 lg:p-6 xl:px-10 grid grid-cols-1 gap-6 min-h-0" id="main-content">
         {/* Right Column - Visual Schedule Table & Override Interface */}
-        <section className="lg:col-span-9 xl:col-span-10 flex flex-col h-full min-h-0">
+        <section className="flex flex-col h-full min-h-0">
           <div className="flex-1 min-h-0">
             <ScheduleGrid
               schedule={schedule}
@@ -255,6 +312,19 @@ export default function App() {
           </div>
         </section>
       </main>
+
+      <SettingsModal
+        show={showSettings}
+        onClose={() => setShowSettings(false)}
+        classes={classes}
+        setClasses={setClasses}
+        settings={settings}
+        setSettings={setSettings}
+        onOptimize={runSchedulerAlgorithm}
+        onResetToDefault={handleResetToDefault}
+        isSolving={isSolving}
+        unscheduledClasses={unscheduledClasses}
+      />
 
 
 

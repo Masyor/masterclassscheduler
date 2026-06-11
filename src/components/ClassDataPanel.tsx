@@ -930,7 +930,7 @@ export default function ClassDataPanel({
               <h5 className="text-[11px] font-bold text-slate-800 uppercase tracking-widest block pb-1 border-b border-slate-200">
                 General Term Properties
               </h5>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-3 gap-3">
                 <div>
                   <label className="text-[10px] uppercase font-bold text-slate-500 block">Term Duration (Weeks)</label>
                   <input
@@ -949,6 +949,17 @@ export default function ClassDataPanel({
                     value={settings.startDate || '2026-06-15'}
                     onChange={(e) => setSettings(prev => ({ ...prev, startDate: e.target.value }))}
                     className="mt-1 w-full border border-slate-200 rounded-lg py-1 px-2.5 text-xs bg-white text-slate-800 text-center font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] uppercase font-bold text-slate-500 block">Level Merge Tolerance</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="5"
+                    value={settings.levelMergeDistance ?? 1}
+                    onChange={(e) => setSettings(prev => ({ ...prev, levelMergeDistance: Math.max(0, parseInt(e.target.value) ?? 1) }))}
+                    className="mt-1 w-full border border-slate-200 rounded-lg py-1.5 px-3 text-xs bg-white text-slate-800 font-mono text-center"
                   />
                 </div>
               </div>
