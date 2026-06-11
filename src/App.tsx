@@ -37,6 +37,8 @@ export default function App() {
   const [confirmReset, setConfirmReset] = useState(false);
   const [copiedCSV, setCopiedCSV] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [isSuperSolving, setIsSuperSolving] = useState(false);
+  const [superSolveProgress, setSuperSolveProgress] = useState(0);
 
   // Run solver on settings or classes change
   const runSchedulerAlgorithm = () => {
@@ -50,6 +52,36 @@ export default function App() {
       setIsPerfectScore(result.isPerfect);
       setIsSolving(false);
     }, 400); // Satisfying loading feedback
+  };
+
+  // Runs solver 10 times and retains the outcome with the fewest unplaced classes
+  const runTenOptimizerRuns = () => {
+    setIsSuperSolving(true);
+    setSuperSolveProgress(1);
+
+    setTimeout(() => {
+      let bestResult = solveGILCSchedule(classes, settings);
+      
+      // We can iterate 9 more times
+      for (let i = 2; i <= 10; i++) {
+        const result = solveGILCSchedule(classes, settings);
+        if (result.unscheduled.length < bestResult.unscheduled.length) {
+          bestResult = result;
+        }
+        if (bestResult.unscheduled.length === 0) {
+          // Already hit a perfect schedule, early exit optimization
+          break;
+        }
+      }
+
+      setSchedule(bestResult.schedule);
+      setClassOffsets(bestResult.classOffsets || {});
+      setUnscheduledClasses(bestResult.unscheduled);
+      setStatusMessage(`Super-Optimizer evaluated 10 full runs! ${bestResult.message}`);
+      setIsPerfectScore(bestResult.isPerfect);
+      setIsSuperSolving(false);
+      setSuperSolveProgress(0);
+    }, 100);
   };
 
   // Solve automatically on first load, or when classes or settings change
@@ -257,14 +289,23 @@ export default function App() {
           <div className="flex flex-wrap items-center gap-3">
              <button
               onClick={runSchedulerAlgorithm}
-              disabled={isSolving}
+              disabled={isSolving || isSuperSolving}
               className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold transition-all cursor-pointer shadow-xs disabled:opacity-50 flex items-center gap-2"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isSolving ? 'animate-spin' : ''}`} />
               Optimize Facility Scheduling
             </button>
             <button
+              onClick={runTenOptimizerRuns}
+              disabled={isSolving || isSuperSolving}
+              className="px-4 py-2 bg-indigo-50 border border-indigo-150 text-indigo-700 hover:bg-indigo-100 rounded-lg text-xs font-bold transition-all cursor-pointer shadow-xs disabled:opacity-50 flex items-center gap-2"
+            >
+              <Sparkles className={`w-3.5 h-3.5 ${isSuperSolving ? 'animate-pulse' : ''}`} />
+              {isSuperSolving ? 'Super-Optimizing (10 Runs)...' : 'Super-Optimize (10 Runs)'}
+            </button>
+            <button
               onClick={handleExportToPDF}
+              disabled={isSolving || isSuperSolving}
               className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-lg text-xs font-bold transition-all cursor-pointer shadow-xs flex items-center gap-2"
             >
               <Download className="w-3.5 h-3.5" />

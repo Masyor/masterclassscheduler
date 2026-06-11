@@ -329,6 +329,27 @@ export function solveWithFixedOffsets(
         );
       }
 
+      function getMergePrefScore(cls: ClassDefinition, day: string): number {
+        const slotKey = `${day}-${cls.time}`;
+        const ids = localSchedule[slotKey] || [];
+        if (ids.length === 0) return 0;
+
+        const sameProgramClasses = ids
+          .map(id => classes.find(c => c.id === id))
+          .filter(Boolean) as ClassDefinition[];
+
+        const compatibleCount = sameProgramClasses.filter(other => 
+          other.program === cls.program && 
+          getLevelDistance(cls, other) <= (settings.levelMergeDistance ?? 1)
+        ).length;
+
+        if (compatibleCount > 0) {
+          return compatibleCount;
+        } else {
+          return -1;
+        }
+      }
+
       let backtrackCount = 0;
       const MAX_BACKTRACKS_LOCAL = 200;
 
@@ -342,7 +363,13 @@ export function solveWithFixedOffsets(
 
         const cls = activeClassesInRoom[classIdx];
 
-        for (const day of cls.days) {
+        const sortedDays = [...cls.days].sort((a, b) => {
+          const scoreA = getMergePrefScore(cls, a);
+          const scoreB = getMergePrefScore(cls, b);
+          return scoreB - scoreA;
+        });
+
+        for (const day of sortedDays) {
           if (canPlaceInWeekRoom(cls, day, cls.time)) {
             const slotKey = `${day}-${cls.time}`;
             localSchedule[slotKey].push(cls.id);
@@ -380,7 +407,13 @@ export function solveWithFixedOffsets(
 
         activeClassesInRoom.forEach(cls => {
           let placed = false;
-          for (const day of cls.days) {
+          const sortedDays = [...cls.days].sort((a, b) => {
+            const scoreA = getMergePrefScore(cls, a);
+            const scoreB = getMergePrefScore(cls, b);
+            return scoreB - scoreA;
+          });
+
+          for (const day of sortedDays) {
             if (canPlaceInWeekRoom(cls, day, cls.time)) {
               localSchedule[`${day}-${cls.time}`].push(cls.id);
               placed = true;
